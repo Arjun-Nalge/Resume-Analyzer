@@ -76,6 +76,7 @@ Arjun Nalge - DevOps Engineer
 
 ## 🏗️ Live Architecture Flow
 
+'''mermaid
 graph TD
     %% Define Styles
     classDef user fill:#ffffff,stroke:#333,stroke-width:2px,color:#333;
