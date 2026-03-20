@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resume Intelligence</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: "Segoe UI", sans-serif;
+}
+
+/* 🌌 Neon Background */
+body {
+    height: 100vh;
+    background: radial-gradient(circle at 20% 20%, #1f1b4b, #020617);
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* ✨ Glass Container */
+.container {
+    width: 900px;
+    padding: 30px;
+    border-radius: 20px;
+    backdrop-filter: blur(15px);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 0 0 40px rgba(99,102,241,0.3);
+    animation: fadeIn 1s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+h2 {
+    text-align: center;
+    margin-bottom: 5px;
+}
+
+.author {
+    text-align: center;
+    font-size: 13px;
+    color: #94a3b8;
+    margin-bottom: 20px;
+}
+
+/* ✍ Inputs */
+textarea {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 12px;
+    border-radius: 10px;
+    border: none;
+    background: rgba(255,255,255,0.05);
+    color: white;
+}
+
+/* 📂 File */
+input[type="file"] {
+    margin-bottom: 15px;
+}
+
+/* 🚀 Button */
+button {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(45deg, #6366f1, #22d3ee);
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 15px #6366f1;
+}
+
+/* 🔄 Loading */
+#loading {
+    text-align: center;
+    margin-top: 10px;
+    display: none;
+}
+
+/* ❌ Error */
+#error {
+    color: #f87171;
+    text-align: center;
+    margin-top: 10px;
+}
+
+/* 🪟 POPUP */
+.popup {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0,0,0,0.6);
+}
+
+.popup-content {
+    width: 500px;
+    padding: 25px;
+    border-radius: 20px;
+    backdrop-filter: blur(20px);
+    background: rgba(30,41,59,0.7);
+    border: 1px solid rgba(255,255,255,0.1);
+    animation: pop 0.4s ease;
+}
+
+@keyframes pop {
+    from { transform: scale(0.8); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.close {
+    float: right;
+    cursor: pointer;
+    font-size: 18px;
+}
+
+/* 📊 Results */
+.result-item {
+    margin-bottom: 10px;
+}
+
+ul {
+    padding-left: 20px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+    <h2>Resume Intelligence</h2>
+    <div class="author">Developed by Arjun N</div>
+
+    <input type="file" id="fileInput">
+
+    <textarea id="resumeText" rows="6" placeholder="Paste Resume..."></textarea>
+    <textarea id="jobDescription" rows="6" placeholder="Paste Job Description..."></textarea>
+
+    <button onclick="analyzeResume()">Analyze Resume</button>
+
+    <div id="loading">Analyzing...</div>
+    <div id="error"></div>
+</div>
+
+<!-- 🔥 POPUP -->
+<div class="popup" id="popup">
+    <div class="popup-content">
+        <span class="close" onclick="closePopup()">✖</span>
+        <h3>Analysis Result</h3>
+
+        <div class="result-item">ATS: <span id="ats"></span></div>
+        <div class="result-item">Match: <span id="match"></span></div>
+        <div class="result-item">Profile: <span id="profile"></span></div>
+
+        <h4>Skills Found</h4>
+        <ul id="skillsFound"></ul>
+
+        <h4>Skill Gaps</h4>
+        <ul id="skillsRequired"></ul>
+
+        <h4>Suggestions</h4>
+        <ul id="suggestions"></ul>
+    </div>
+</div>
+
+<script>
+const API_URL = "https://85kc2icvni.execute-api.us-east-1.amazonaws.com/resumerest/analyze";
+
+/* PDF */
+document.getElementById('fileInput').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    const reader = new FileReader();
+
+    reader.onload = async function () {
+        const pdf = await pdfjsLib.getDocument(new Uint8Array(this.result)).promise;
+        let text = "";
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            text += content.items.map(i => i.str).join(" ");
+        }
+
+        document.getElementById('resumeText').value = text;
+    };
+
+    reader.readAsArrayBuffer(file);
+});
+
+/* MAIN */
+async function analyzeResume() {
+    const resume = document.getElementById("resumeText").value.trim();
+    const jd = document.getElementById("jobDescription").value.trim();
+
+    if (!resume || !jd) return alert("Fill both fields");
+
+    document.getElementById("loading").style.display = "block";
+
+    try {
+        const response = await fetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ resume_text: resume, job_description: jd })
+        });
+
+        const data = await response.json();
+        let result = data.body ? JSON.parse(data.body) : data;
+
+        showPopup(result);
+
+    } catch (err) {
+        document.getElementById("error").innerText = err.message;
+    }
+
+    document.getElementById("loading").style.display = "none";
+}
+
+/* POPUP */
+function showPopup(data) {
+    document.getElementById("popup").style.display = "flex";
+
+    document.getElementById("ats").innerText = data.ATS_score;
+    document.getElementById("match").innerText = data.JD_match_score + "%";
+    document.getElementById("profile").innerText = data.profile_score;
+
+    renderList("skillsFound", data.skills_found);
+
+    renderList(
+        "skillsRequired",
+        data.skills_required.filter(
+            s => !data.skills_found.map(f => f.toLowerCase()).includes(s.toLowerCase())
+        )
+    );
+
+    renderList("suggestions", data.suggestions);
+}
+
+function closePopup() {
+    document.getElementById("popup").style.display = "none";
+}
+
+/* LIST */
+function renderList(id, items) {
+    const el = document.getElementById(id);
+    el.innerHTML = items.length
+        ? items.map(i => `<li>${i}</li>`).join("")
+        : "<li>None</li>";
+}
+</script>
+
+</body>
+</html>
